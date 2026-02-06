@@ -1,62 +1,65 @@
+const express = require('express');
 const http = require('http');
+const https = require('https');
 const { DataStream } = require('scramjet');
+const path = require('path');
 
-// 1. Configuration via Environment Variables
-// Koyeb automatically provides the PORT variable.
-const PORT = process.env.PORT || 8000; 
-// You will set this variable in the Koyeb Dashboard.
-const TARGET_URL = process.env.TARGET_URL || 'http://example.com'; 
+const app = express();
+const PORT = process.env.PORT || 8000;
 
-const server = http.createServer((clientReq, clientRes) => {
-    // Basic health check endpoint for Koyeb
-    if (clientReq.url === '/health') {
-        clientRes.writeHead(200, { 'Content-Type': 'text/plain' });
-        clientRes.end('OK');
-        return;
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check for Koyeb
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+// The Proxy Logic
+app.get('/main', async (req, res) => {
+    let targetUrl = req.query.url;
+
+    if (!targetUrl) {
+        return res.status(400).send('No URL provided');
     }
 
-    console.log(`[${new Date().toISOString()}] Proxying ${clientReq.method} request for: ${clientReq.url}`);
+    // Basic URL cleaning
+    if (!targetUrl.startsWith('http')) {
+        targetUrl = 'https://' + targetUrl;
+    }
 
-    // 2. Parse the target URL to handle paths correctly
-    // This ensures we can proxy http://mysite.com/api even if TARGET_URL is just http://mysite.com
-    const targetUrlObj = new URL(TARGET_URL);
-    
-    const options = {
-        hostname: targetUrlObj.hostname,
-        port: targetUrlObj.port || 80,
-        path: clientReq.url, 
-        method: clientReq.method,
-        headers: clientReq.headers
-    };
+    try {
+        const urlObj = new URL(targetUrl);
+        const client = urlObj.protocol === 'https:' ? https : http;
 
-    // Remove host header to avoid conflicts with the target server
-    // (The target expects its own host, not your Koyeb domain)
-    delete options.headers['host'];
+        const requestOptions = {
+            method: 'GET',
+            headers: {
+                'User-Agent': req.headers['user-agent'],
+                'Accept': req.headers['accept'],
+                'Accept-Language': req.headers['accept-language'],
+            }
+        };
 
-    // 3. Create the Proxy Request
-    const proxyReq = http.request(options, (targetRes) => {
-        // Forward status and headers
-        clientRes.writeHead(targetRes.statusCode, targetRes.headers);
+        const proxyReq = client.request(targetUrl, requestOptions, (targetRes) => {
+            // Forward headers and status
+            res.writeHead(targetRes.statusCode, targetRes.headers);
 
-        // 4. Stream data with Scramjet
-        DataStream.from(targetRes)
-            .pipe(clientRes);
-    });
+            // Use Scramjet to pipe the data
+            // You can add .map() or .filter() here to modify the HTML on the fly
+            DataStream.from(targetRes)
+                .pipe(res);
+        });
 
-    // Error Handling
-    proxyReq.on('error', (e) => {
-        console.error(`Proxy Error: ${e.message}`);
-        if (!clientRes.headersSent) {
-            clientRes.writeHead(502, { 'Content-Type': 'text/plain' });
-            clientRes.end('Bad Gateway');
-        }
-    });
+        proxyReq.on('error', (err) => {
+            res.status(500).send('Proxy Error: ' + err.message);
+        });
 
-    // Stream the client request body to the target (for POST/PUT)
-    DataStream.from(clientReq).pipe(proxyReq);
+        proxyReq.end();
+
+    } catch (e) {
+        res.status(500).send('Invalid URL');
+    }
 });
 
-server.listen(PORT, () => {
-    console.log(`🚀 Proxy server active on port ${PORT}`);
-    console.log(`🔗 Target URL: ${TARGET_URL}`);
+app.listen(PORT, () => {
+    console.log(`🚀 ScramProxy is live on port ${PORT}`);
 });

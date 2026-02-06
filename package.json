@@ -8,7 +8,8 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "scramjet": "^4.36.0"
+    "express": "^5.2.1",
+    "scramjet": "^4.37.0"
   },
   "engines": {
     "node": "18.x"

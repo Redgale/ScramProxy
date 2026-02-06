@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScramProxy | Web</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="browser-container">
+    <div class="tab-bar">
+        <div id="tabs-container" style="display: flex; gap: 5px;">
+            </div>
+        <div class="add-tab" onclick="createNewTab()">+</div>
+    </div>
+
+    <div class="nav-bar">
+        <button class="btn-icon" onclick="getCurrentFrame().contentWindow.history.back()">←</button>
+        <button class="btn-icon" onclick="getCurrentFrame().contentWindow.history.forward()">→</button>
+        <button class="btn-icon" onclick="getCurrentFrame().contentWindow.location.reload()">↻</button>
+        
+        <input type="text" id="url-input" class="address-bar" placeholder="Enter URL or search..." onkeydown="if(event.key==='Enter') navigate()">
+        
+        <button class="btn-icon" onclick="toggleSettings()" title="Settings">⚙️</button>
+        <button class="btn-icon" onclick="cloak('about:blank')" title="Cloak (about:blank)">🕶️</button>
+    </div>
+
+    <div id="settings-menu" class="settings-menu">
+        <h4 style="margin-top: 0;">Settings</h4>
+        <label>Cloak Method:</label>
+        <select id="cloak-method" style="width: 100%; margin-bottom: 10px;">
+            <option value="about:blank">about:blank</option>
+            <option value="blob">Blob URL</option>
+        </select>
+        <button onclick="cloak(document.getElementById('cloak-method').value)" style="width: 100%; padding: 5px; cursor: pointer;">Apply Cloak</button>
+    </div>
+
+    <div id="frames-container" class="content-area">
+        </div>
+</div>
+
+<script>
+    let tabCount = 0;
+    let activeTabId = null;
+
+    // Create a default tab on load
+    window.onload = () => createNewTab();
+
+    function createNewTab() {
+        tabCount++;
+        const id = `tab-${tabCount}`;
+        
+        // 1. Create Tab Button
+        const tabBtn = document.createElement('div');
+        tabBtn.className = 'tab';
+        tabBtn.id = `btn-${id}`;
+        tabBtn.innerHTML = `New Tab <span onclick="closeTab('${id}', event)" style="margin-left:10px; opacity:0.5">×</span>`;
+        tabBtn.onclick = () => switchTab(id);
+        document.getElementById('tabs-container').appendChild(tabBtn);
+
+        // 2. Create corresponding Iframe
+        const iframe = document.createElement('iframe');
+        iframe.id = id;
+        iframe.src = 'about:blank'; // Start empty
+        document.getElementById('frames-container').appendChild(iframe);
+
+        switchTab(id);
+    }
+
+    function switchTab(id) {
+        // Deactivate old tab
+        if (activeTabId) {
+            document.getElementById(`btn-${activeTabId}`).classList.remove('active');
+            document.getElementById(activeTabId).classList.remove('active');
+        }
+
+        // Activate new tab
+        activeTabId = id;
+        document.getElementById(`btn-${id}`).classList.add('active');
+        document.getElementById(id).classList.add('active');
+
+        // Update address bar with current iframe src (if proxied)
+        const frame = document.getElementById(id);
+        try {
+            const currentUrl = new URL(frame.src).searchParams.get('url');
+            document.getElementById('url-input').value = currentUrl || '';
+        } catch(e) {
+            document.getElementById('url-input').value = '';
+        }
+    }
+
+    function navigate() {
+        const input = document.getElementById('url-input').value.trim();
+        if (!input) return;
+
+        const frame = document.getElementById(activeTabId);
+        const tabBtn = document.getElementById(`btn-${activeTabId}`);
+
+        // Point to our Scramjet server endpoint
+        frame.src = `/main?url=${encodeURIComponent(input)}`;
+        tabBtn.innerText = input.substring(0, 15) + '...';
+    }
+
+    function getCurrentFrame() {
+        return document.getElementById(activeTabId);
+    }
+
+    function toggleSettings() {
+        const menu = document.getElementById('settings-menu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // Tab Cloaking Logic
+    function cloak(type) {
+        const url = window.location.href;
+        if (type === 'about:blank') {
+            const win = window.open();
+            win.document.body.style.margin = '0';
+            win.document.body.style.height = '100vh';
+            const frame = win.document.createElement('iframe');
+            frame.style.border = 'none';
+            frame.style.width = '100%';
+            frame.style.height = '100%';
+            frame.src = url;
+            win.document.body.appendChild(frame);
+        } else if (type === 'blob') {
+            const html = `<html><body style="margin:0;height:100vh;"><iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe></body></html>`;
+            const blob = new Blob([html], { type: 'text/html' });
+            const blobUrl = URL.createObjectURL(blob);
+            window.open(blobUrl);
+        }
+    }
+
+    function closeTab(id, event) {
+        event.stopPropagation();
+        const tabBtn = document.getElementById(`btn-${id}`);
+        const iframe = document.getElementById(id);
+        
+        tabBtn.remove();
+        iframe.remove();
+
+        // If we closed the active tab, switch to the last remaining one
+        if (activeTabId === id) {
+            const remainingTabs = document.querySelectorAll('.tab');
+            if (remainingTabs.length > 0) {
+                const nextId = remainingTabs[remainingTabs.length - 1].id.replace('btn-', '');
+                switchTab(nextId);
+            } else {
+                createNewTab();
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
