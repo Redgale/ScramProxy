@@ -9,11 +9,12 @@ const PORT = process.env.PORT || 8000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/proxy', async (req, res) => {
-    let target = req.query.url;
-    if (!target) return res.status(400).send('URL is required');
+// The "Service" endpoint handles all proxied traffic
+app.get('/s/:url(*)', async (req, res) => {
+    let target = req.params.url;
+    if (!target) return res.redirect('/');
 
-    // Add protocol if missing
+    // Handle protocol-less URLs
     if (!target.startsWith('http')) target = 'https://' + target;
 
     try {
@@ -21,34 +22,48 @@ app.get('/proxy', async (req, res) => {
         const protocol = url.protocol === 'https:' ? https : http;
 
         const options = {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+            method: 'GET',
+            headers: {
+                'User-Agent': req.headers['user-agent'],
+                'Referer': url.origin
+            }
         };
 
-        protocol.get(target, options, (targetRes) => {
-            const contentType = targetRes.headers['content-type'] || '';
-            
-            // Forward status and headers
-            res.writeHead(targetRes.statusCode, targetRes.headers);
+        const proxyReq = protocol.request(target, options, (targetRes) => {
+            // 1. STRIP SECURITY HEADERS (The "Uncook" Step)
+            const headers = { ...targetRes.headers };
+            delete headers['x-frame-options'];
+            delete headers['content-security-policy'];
+            delete headers['content-security-policy-report-only'];
+            delete headers['cross-origin-resource-policy'];
 
-            // SCRAMJET LOGIC: If it's HTML, inject a <base> tag to fix CSS/Links
+            // 2. Add CORS so the browser allows the assets
+            headers['Access-Control-Allow-Origin'] = '*';
+
+            res.writeHead(targetRes.statusCode, headers);
+
+            const contentType = headers['content-type'] || '';
+
+            // 3. Inject Base Tag for HTML
             if (contentType.includes('text/html')) {
                 DataStream.from(targetRes)
                     .map(chunk => chunk.toString())
                     .map(html => {
-                        // Injects <base> right after <head> to fix all relative paths
-                        return html.replace('<head>', `<head><base href="${url.origin}${url.pathname}">`);
+                        // Injects a base tag so relative links resolve back to our proxy
+                        const baseTag = `<base href="/s/${url.origin}${url.pathname}">`;
+                        return html.replace('<head>', `<head>${baseTag}`);
                     })
                     .pipe(res);
             } else {
-                // For images, CSS files, and JS, just pipe them directly
                 targetRes.pipe(res);
             }
-        }).on('error', (err) => {
-            res.status(500).send('Proxy Error: ' + err.message);
         });
+
+        proxyReq.on('error', (err) => res.status(500).send('Proxy Error: ' + err.message));
+        proxyReq.end();
     } catch (e) {
-        res.status(500).send('Invalid URL format');
+        res.status(500).send('Invalid URL');
     }
 });
 
-app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 ScramProxy Uncooked is live on port ${PORT}`));

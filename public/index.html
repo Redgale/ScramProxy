@@ -2,225 +2,98 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zen Proxy | Minimal Browser</title>
+    <title>Zen Browser</title>
     <style>
-        :root {
-            --bg: #0a0a0c;
-            --surface: #16161a;
-            --accent: #a855f7;
-            --text: #f4f4f5;
-            --border: #27272a;
-        }
-
-        body {
-            margin: 0; padding: 0;
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* Nav Bar Styling */
-        .navbar {
-            background: var(--surface);
-            padding: 10px 15px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid var(--border);
-            z-index: 10;
-        }
-
-        .controls { display: flex; gap: 8px; }
+        :root { --bg: #0d0d0f; --nav: #16161a; --accent: #8b5cf6; --text: #f4f4f5; --border: #27272a; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        .btn {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn:hover { background: var(--border); border-color: var(--accent); }
-
-        .search-container {
-            flex-grow: 1;
-            position: relative;
-        }
-
-        #url-input {
-            width: 100%;
-            background: #000;
-            border: 1px solid var(--border);
-            padding: 10px 15px;
-            border-radius: 8px;
-            color: #fff;
-            outline: none;
-            transition: 0.3s;
-        }
-        #url-input:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
-
-        /* Tabs Styling */
-        .tabs-row {
-            display: flex;
-            background: #000;
-            padding: 5px 10px 0;
-            gap: 4px;
-        }
-        .tab {
-            padding: 8px 20px;
-            background: var(--surface);
-            border-radius: 8px 8px 0 0;
-            font-size: 13px;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            border-bottom: none;
-            min-width: 100px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .tab-bar { display: flex; background: #000; padding: 5px 10px 0; gap: 4px; border-bottom: 1px solid var(--border); }
+        .tab { padding: 8px 15px; background: var(--nav); border-radius: 8px 8px 0 0; font-size: 12px; cursor: pointer; border: 1px solid var(--border); border-bottom: none; display: flex; align-items: center; gap: 8px; min-width: 120px; max-width: 200px; }
         .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
-        .tab-close { margin-left: 10px; opacity: 0.6; }
-        .tab-close:hover { opacity: 1; }
-
-        /* Main Viewport */
-        .viewport { flex-grow: 1; position: relative; background: #fff; }
-        iframe {
-            width: 100%; height: 100%;
-            border: none;
-            display: none;
-        }
+        .tab img { width: 14px; height: 14px; border-radius: 2px; }
+        
+        .navbar { background: var(--nav); padding: 8px 15px; display: flex; gap: 10px; align-items: center; }
+        .omnibox { flex-grow: 1; background: #000; border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; color: #fff; outline: none; }
+        .omnibox:focus { border-color: var(--accent); }
+        
+        .btn { background: none; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
+        
+        .view-area { flex-grow: 1; background: #fff; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; display: none; }
         iframe.active { display: block; }
-
-        /* Settings Overly */
-        #settings {
-            position: fixed; top: 70px; right: 20px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            padding: 20px; border-radius: 12px;
-            display: none;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-        }
     </style>
 </head>
 <body>
 
-<div class="tabs-row" id="tabs">
-    <button class="btn" style="margin-bottom: 5px;" onclick="addTab()">+</button>
+<div class="tab-bar" id="tab-bar">
+    <button class="btn" onclick="addTab()" style="margin-bottom:5px">+</button>
 </div>
 
 <div class="navbar">
-    <div class="controls">
-        <button class="btn" onclick="goBack()">←</button>
-        <button class="btn" onclick="reload()">↻</button>
-    </div>
-    <div class="search-container">
-        <input type="text" id="url-input" placeholder="Enter URL or Search Google..." onkeydown="if(event.key==='Enter') navigate()">
-    </div>
-    <button class="btn" onclick="toggleSettings()">⚙️</button>
-    <button class="btn" onclick="cloak()">🕶️ Cloak</button>
+    <button class="btn" onclick="goBack()">←</button>
+    <button class="btn" onclick="reload()">↻</button>
+    <input type="text" id="url-input" class="omnibox" placeholder="Enter URL or search Google..." onkeydown="if(event.key==='Enter') navigate()">
+    <button class="btn" onclick="cloak('about:blank')">🕶️ Cloak</button>
 </div>
 
-<div id="settings">
-    <h3>Browser Settings</h3>
-    <p>Search Engine: 
-        <select id="engine">
-            <option value="https://www.google.com/search?q=">Google</option>
-            <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
-        </select>
-    </p>
-    <button class="btn" style="width:100%" onclick="toggleSettings()">Close</button>
-</div>
-
-<div class="viewport" id="viewport">
-    </div>
+<div class="view-area" id="view-area"></div>
 
 <script>
     let tabs = [];
-    let activeTabId = null;
+    let activeId = null;
 
-    function addTab(url = '') {
-        const id = 't-' + Date.now();
-        const tab = { id, url };
-        tabs.push(tab);
+    function addTab() {
+        const id = 't' + Date.now();
+        const tabBtn = document.createElement('div');
+        tabBtn.className = 'tab';
+        tabBtn.id = `btn-${id}`;
+        tabBtn.innerHTML = `<img src="https://www.google.com/favicon.ico" id="fav-${id}"> <span id="title-${id}">New Tab</span>`;
+        tabBtn.onclick = () => switchTab(id);
+        document.getElementById('tab-bar').insertBefore(tabBtn, document.getElementById('tab-bar').firstChild);
 
-        // Create Tab element
-        const tabEl = document.createElement('div');
-        tabEl.className = 'tab';
-        tabEl.id = `tab-btn-${id}`;
-        tabEl.innerHTML = `<span>New Tab</span> <span class="tab-close" onclick="closeTab('${id}', event)">×</span>`;
-        tabEl.onclick = () => switchTab(id);
-        document.getElementById('tabs').insertBefore(tabEl, document.getElementById('tabs').lastElementChild);
-
-        // Create Iframe element
         const ifr = document.createElement('iframe');
         ifr.id = `frame-${id}`;
-        document.getElementById('viewport').appendChild(ifr);
+        document.getElementById('view-area').appendChild(ifr);
 
+        tabs.push(id);
         switchTab(id);
     }
 
     function switchTab(id) {
         document.querySelectorAll('.tab, iframe').forEach(el => el.classList.remove('active'));
-        activeTabId = id;
-        document.getElementById(`tab-btn-${id}`).classList.add('active');
+        activeId = id;
+        document.getElementById(`btn-${id}`).classList.add('active');
         document.getElementById(`frame-${id}`).classList.add('active');
-        
-        // Sync URL input
-        const currentIframe = document.getElementById(`frame-${id}`);
-        try {
-            const urlParam = new URL(currentIframe.src).searchParams.get('url');
-            document.getElementById('url-input').value = urlParam || '';
-        } catch(e) { document.getElementById('url-input').value = ''; }
     }
 
     function navigate() {
-        let input = document.getElementById('url-input').value.trim();
-        if(!input) return;
+        let val = document.getElementById('url-input').value.trim();
+        if (!val) return;
 
-        // Determine if input is a URL or a Search query
-        const isUrl = input.includes('.') && !input.includes(' ');
-        const engine = document.getElementById('engine').value;
-        const targetUrl = isUrl ? input : engine + encodeURIComponent(input);
+        // Omnibox Logic: URL vs Search
+        const isUrl = val.includes('.') && !val.includes(' ');
+        const url = isUrl ? (val.startsWith('http') ? val : 'https://' + val) : 'https://www.google.com/search?q=' + encodeURIComponent(val);
 
-        const frame = document.getElementById(`frame-${activeTabId}`);
-        frame.src = `/proxy?url=${encodeURIComponent(targetUrl)}`;
-        
-        document.getElementById(`tab-btn-${activeTabId}`).querySelector('span').innerText = isUrl ? input : 'Search Results';
+        const frame = document.getElementById(`frame-${activeId}`);
+        frame.src = `/s/${url}`;
+
+        // Update Tab
+        document.getElementById(`title-${activeId}`).innerText = isUrl ? val.split('/')[0] : 'Search';
+        document.getElementById(`fav-${activeId}`).src = `https://www.google.com/s2/favicons?domain=${url}&sz=32`;
     }
 
-    function closeTab(id, e) {
-        e.stopPropagation();
-        document.getElementById(`tab-btn-${id}`).remove();
-        document.getElementById(`frame-${id}`).remove();
-        tabs = tabs.filter(t => t.id !== id);
-        if(activeTabId === id && tabs.length > 0) switchTab(tabs[0].id);
-        if(tabs.length === 0) addTab();
-    }
-
-    function cloak() {
+    function cloak(type) {
         const url = window.location.href;
         const win = window.open('about:blank', '_blank');
         win.document.body.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;position:fixed;top:0;left:0;"></iframe>`;
-        win.document.title = "Classes"; // Fake title for school/work
+        win.document.title = "Google Drive"; // School-friendly title
     }
 
-    function toggleSettings() {
-        const s = document.getElementById('settings');
-        s.style.display = s.style.display === 'block' ? 'none' : 'block';
-    }
+    function reload() { document.getElementById(`frame-${activeId}`).contentWindow.location.reload(); }
+    function goBack() { document.getElementById(`frame-${activeId}`).contentWindow.history.back(); }
 
-    function reload() { document.getElementById(`frame-${activeTabId}`).contentWindow.location.reload(); }
-    function goBack() { document.getElementById(`frame-${activeTabId}`).contentWindow.history.back(); }
-
-    // Init first tab
-    addTab();
+    addTab(); // Start with one tab
 </script>
 </body>
 </html>
