@@ -1,0 +1,16 @@
+{
+  "name": "scramjet-proxy-koyeb",
+  "version": "1.0.0",
+  "description": "A lightweight Scramjet proxy for Koyeb deployment",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "scramjet": "^4.36.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
