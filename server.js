@@ -1,65 +1,54 @@
 const express = require('express');
-const http = require('http');
 const https = require('https');
+const http = require('http');
 const { DataStream } = require('scramjet');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Health check for Koyeb
-app.get('/health', (req, res) => res.status(200).send('OK'));
+app.get('/proxy', async (req, res) => {
+    let target = req.query.url;
+    if (!target) return res.status(400).send('URL is required');
 
-// The Proxy Logic
-app.get('/main', async (req, res) => {
-    let targetUrl = req.query.url;
-
-    if (!targetUrl) {
-        return res.status(400).send('No URL provided');
-    }
-
-    // Basic URL cleaning
-    if (!targetUrl.startsWith('http')) {
-        targetUrl = 'https://' + targetUrl;
-    }
+    // Add protocol if missing
+    if (!target.startsWith('http')) target = 'https://' + target;
 
     try {
-        const urlObj = new URL(targetUrl);
-        const client = urlObj.protocol === 'https:' ? https : http;
+        const url = new URL(target);
+        const protocol = url.protocol === 'https:' ? https : http;
 
-        const requestOptions = {
-            method: 'GET',
-            headers: {
-                'User-Agent': req.headers['user-agent'],
-                'Accept': req.headers['accept'],
-                'Accept-Language': req.headers['accept-language'],
-            }
+        const options = {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
         };
 
-        const proxyReq = client.request(targetUrl, requestOptions, (targetRes) => {
-            // Forward headers and status
+        protocol.get(target, options, (targetRes) => {
+            const contentType = targetRes.headers['content-type'] || '';
+            
+            // Forward status and headers
             res.writeHead(targetRes.statusCode, targetRes.headers);
 
-            // Use Scramjet to pipe the data
-            // You can add .map() or .filter() here to modify the HTML on the fly
-            DataStream.from(targetRes)
-                .pipe(res);
-        });
-
-        proxyReq.on('error', (err) => {
+            // SCRAMJET LOGIC: If it's HTML, inject a <base> tag to fix CSS/Links
+            if (contentType.includes('text/html')) {
+                DataStream.from(targetRes)
+                    .map(chunk => chunk.toString())
+                    .map(html => {
+                        // Injects <base> right after <head> to fix all relative paths
+                        return html.replace('<head>', `<head><base href="${url.origin}${url.pathname}">`);
+                    })
+                    .pipe(res);
+            } else {
+                // For images, CSS files, and JS, just pipe them directly
+                targetRes.pipe(res);
+            }
+        }).on('error', (err) => {
             res.status(500).send('Proxy Error: ' + err.message);
         });
-
-        proxyReq.end();
-
     } catch (e) {
-        res.status(500).send('Invalid URL');
+        res.status(500).send('Invalid URL format');
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 ScramProxy is live on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));

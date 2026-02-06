@@ -3,156 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScramProxy | Web</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>Zen Proxy | Minimal Browser</title>
+    <style>
+        :root {
+            --bg: #0a0a0c;
+            --surface: #16161a;
+            --accent: #a855f7;
+            --text: #f4f4f5;
+            --border: #27272a;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Nav Bar Styling */
+        .navbar {
+            background: var(--surface);
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .controls { display: flex; gap: 8px; }
+        
+        .btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn:hover { background: var(--border); border-color: var(--accent); }
+
+        .search-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        #url-input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+            transition: 0.3s;
+        }
+        #url-input:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
+
+        /* Tabs Styling */
+        .tabs-row {
+            display: flex;
+            background: #000;
+            padding: 5px 10px 0;
+            gap: 4px;
+        }
+        .tab {
+            padding: 8px 20px;
+            background: var(--surface);
+            border-radius: 8px 8px 0 0;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            min-width: 100px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .tab-close { margin-left: 10px; opacity: 0.6; }
+        .tab-close:hover { opacity: 1; }
+
+        /* Main Viewport */
+        .viewport { flex-grow: 1; position: relative; background: #fff; }
+        iframe {
+            width: 100%; height: 100%;
+            border: none;
+            display: none;
+        }
+        iframe.active { display: block; }
+
+        /* Settings Overly */
+        #settings {
+            position: fixed; top: 70px; right: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 20px; border-radius: 12px;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+    </style>
 </head>
 <body>
 
-<div class="browser-container">
-    <div class="tab-bar">
-        <div id="tabs-container" style="display: flex; gap: 5px;">
-            </div>
-        <div class="add-tab" onclick="createNewTab()">+</div>
-    </div>
-
-    <div class="nav-bar">
-        <button class="btn-icon" onclick="getCurrentFrame().contentWindow.history.back()">←</button>
-        <button class="btn-icon" onclick="getCurrentFrame().contentWindow.history.forward()">→</button>
-        <button class="btn-icon" onclick="getCurrentFrame().contentWindow.location.reload()">↻</button>
-        
-        <input type="text" id="url-input" class="address-bar" placeholder="Enter URL or search..." onkeydown="if(event.key==='Enter') navigate()">
-        
-        <button class="btn-icon" onclick="toggleSettings()" title="Settings">⚙️</button>
-        <button class="btn-icon" onclick="cloak('about:blank')" title="Cloak (about:blank)">🕶️</button>
-    </div>
-
-    <div id="settings-menu" class="settings-menu">
-        <h4 style="margin-top: 0;">Settings</h4>
-        <label>Cloak Method:</label>
-        <select id="cloak-method" style="width: 100%; margin-bottom: 10px;">
-            <option value="about:blank">about:blank</option>
-            <option value="blob">Blob URL</option>
-        </select>
-        <button onclick="cloak(document.getElementById('cloak-method').value)" style="width: 100%; padding: 5px; cursor: pointer;">Apply Cloak</button>
-    </div>
-
-    <div id="frames-container" class="content-area">
-        </div>
+<div class="tabs-row" id="tabs">
+    <button class="btn" style="margin-bottom: 5px;" onclick="addTab()">+</button>
 </div>
 
+<div class="navbar">
+    <div class="controls">
+        <button class="btn" onclick="goBack()">←</button>
+        <button class="btn" onclick="reload()">↻</button>
+    </div>
+    <div class="search-container">
+        <input type="text" id="url-input" placeholder="Enter URL or Search Google..." onkeydown="if(event.key==='Enter') navigate()">
+    </div>
+    <button class="btn" onclick="toggleSettings()">⚙️</button>
+    <button class="btn" onclick="cloak()">🕶️ Cloak</button>
+</div>
+
+<div id="settings">
+    <h3>Browser Settings</h3>
+    <p>Search Engine: 
+        <select id="engine">
+            <option value="https://www.google.com/search?q=">Google</option>
+            <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+        </select>
+    </p>
+    <button class="btn" style="width:100%" onclick="toggleSettings()">Close</button>
+</div>
+
+<div class="viewport" id="viewport">
+    </div>
+
 <script>
-    let tabCount = 0;
+    let tabs = [];
     let activeTabId = null;
 
-    // Create a default tab on load
-    window.onload = () => createNewTab();
+    function addTab(url = '') {
+        const id = 't-' + Date.now();
+        const tab = { id, url };
+        tabs.push(tab);
 
-    function createNewTab() {
-        tabCount++;
-        const id = `tab-${tabCount}`;
-        
-        // 1. Create Tab Button
-        const tabBtn = document.createElement('div');
-        tabBtn.className = 'tab';
-        tabBtn.id = `btn-${id}`;
-        tabBtn.innerHTML = `New Tab <span onclick="closeTab('${id}', event)" style="margin-left:10px; opacity:0.5">×</span>`;
-        tabBtn.onclick = () => switchTab(id);
-        document.getElementById('tabs-container').appendChild(tabBtn);
+        // Create Tab element
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab';
+        tabEl.id = `tab-btn-${id}`;
+        tabEl.innerHTML = `<span>New Tab</span> <span class="tab-close" onclick="closeTab('${id}', event)">×</span>`;
+        tabEl.onclick = () => switchTab(id);
+        document.getElementById('tabs').insertBefore(tabEl, document.getElementById('tabs').lastElementChild);
 
-        // 2. Create corresponding Iframe
-        const iframe = document.createElement('iframe');
-        iframe.id = id;
-        iframe.src = 'about:blank'; // Start empty
-        document.getElementById('frames-container').appendChild(iframe);
+        // Create Iframe element
+        const ifr = document.createElement('iframe');
+        ifr.id = `frame-${id}`;
+        document.getElementById('viewport').appendChild(ifr);
 
         switchTab(id);
     }
 
     function switchTab(id) {
-        // Deactivate old tab
-        if (activeTabId) {
-            document.getElementById(`btn-${activeTabId}`).classList.remove('active');
-            document.getElementById(activeTabId).classList.remove('active');
-        }
-
-        // Activate new tab
+        document.querySelectorAll('.tab, iframe').forEach(el => el.classList.remove('active'));
         activeTabId = id;
-        document.getElementById(`btn-${id}`).classList.add('active');
-        document.getElementById(id).classList.add('active');
-
-        // Update address bar with current iframe src (if proxied)
-        const frame = document.getElementById(id);
+        document.getElementById(`tab-btn-${id}`).classList.add('active');
+        document.getElementById(`frame-${id}`).classList.add('active');
+        
+        // Sync URL input
+        const currentIframe = document.getElementById(`frame-${id}`);
         try {
-            const currentUrl = new URL(frame.src).searchParams.get('url');
-            document.getElementById('url-input').value = currentUrl || '';
-        } catch(e) {
-            document.getElementById('url-input').value = '';
-        }
+            const urlParam = new URL(currentIframe.src).searchParams.get('url');
+            document.getElementById('url-input').value = urlParam || '';
+        } catch(e) { document.getElementById('url-input').value = ''; }
     }
 
     function navigate() {
-        const input = document.getElementById('url-input').value.trim();
-        if (!input) return;
+        let input = document.getElementById('url-input').value.trim();
+        if(!input) return;
 
-        const frame = document.getElementById(activeTabId);
-        const tabBtn = document.getElementById(`btn-${activeTabId}`);
+        // Determine if input is a URL or a Search query
+        const isUrl = input.includes('.') && !input.includes(' ');
+        const engine = document.getElementById('engine').value;
+        const targetUrl = isUrl ? input : engine + encodeURIComponent(input);
 
-        // Point to our Scramjet server endpoint
-        frame.src = `/main?url=${encodeURIComponent(input)}`;
-        tabBtn.innerText = input.substring(0, 15) + '...';
+        const frame = document.getElementById(`frame-${activeTabId}`);
+        frame.src = `/proxy?url=${encodeURIComponent(targetUrl)}`;
+        
+        document.getElementById(`tab-btn-${activeTabId}`).querySelector('span').innerText = isUrl ? input : 'Search Results';
     }
 
-    function getCurrentFrame() {
-        return document.getElementById(activeTabId);
+    function closeTab(id, e) {
+        e.stopPropagation();
+        document.getElementById(`tab-btn-${id}`).remove();
+        document.getElementById(`frame-${id}`).remove();
+        tabs = tabs.filter(t => t.id !== id);
+        if(activeTabId === id && tabs.length > 0) switchTab(tabs[0].id);
+        if(tabs.length === 0) addTab();
+    }
+
+    function cloak() {
+        const url = window.location.href;
+        const win = window.open('about:blank', '_blank');
+        win.document.body.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;position:fixed;top:0;left:0;"></iframe>`;
+        win.document.title = "Classes"; // Fake title for school/work
     }
 
     function toggleSettings() {
-        const menu = document.getElementById('settings-menu');
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        const s = document.getElementById('settings');
+        s.style.display = s.style.display === 'block' ? 'none' : 'block';
     }
 
-    // Tab Cloaking Logic
-    function cloak(type) {
-        const url = window.location.href;
-        if (type === 'about:blank') {
-            const win = window.open();
-            win.document.body.style.margin = '0';
-            win.document.body.style.height = '100vh';
-            const frame = win.document.createElement('iframe');
-            frame.style.border = 'none';
-            frame.style.width = '100%';
-            frame.style.height = '100%';
-            frame.src = url;
-            win.document.body.appendChild(frame);
-        } else if (type === 'blob') {
-            const html = `<html><body style="margin:0;height:100vh;"><iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe></body></html>`;
-            const blob = new Blob([html], { type: 'text/html' });
-            const blobUrl = URL.createObjectURL(blob);
-            window.open(blobUrl);
-        }
-    }
+    function reload() { document.getElementById(`frame-${activeTabId}`).contentWindow.location.reload(); }
+    function goBack() { document.getElementById(`frame-${activeTabId}`).contentWindow.history.back(); }
 
-    function closeTab(id, event) {
-        event.stopPropagation();
-        const tabBtn = document.getElementById(`btn-${id}`);
-        const iframe = document.getElementById(id);
-        
-        tabBtn.remove();
-        iframe.remove();
-
-        // If we closed the active tab, switch to the last remaining one
-        if (activeTabId === id) {
-            const remainingTabs = document.querySelectorAll('.tab');
-            if (remainingTabs.length > 0) {
-                const nextId = remainingTabs[remainingTabs.length - 1].id.replace('btn-', '');
-                switchTab(nextId);
-            } else {
-                createNewTab();
-            }
-        }
-    }
+    // Init first tab
+    addTab();
 </script>
-
 </body>
 </html>
