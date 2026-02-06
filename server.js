@@ -9,10 +9,10 @@ const PORT = process.env.PORT || 8000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Use '*' to capture everything after /s/
-app.get('/s/*', async (req, res) => {
-    // Capture the target URL from the path
-    let target = req.params[0]; 
+// The fix: ':target*' gives the wildcard a name so the parser doesn't crash
+app.get('/s/:target*', async (req, res) => {
+    // We reconstruct the URL by taking the 'target' param and the rest of the path
+    let target = req.params.target + req.params[0];
     
     if (!target) return res.redirect('/');
 
@@ -33,45 +33,43 @@ app.get('/s/*', async (req, res) => {
         };
 
         const proxyReq = protocol.request(target, options, (targetRes) => {
-            // 1. Strip security headers that "cook" the page (prevent iframing)
             const headers = { ...targetRes.headers };
+            
+            // Uncook the site: Remove security headers that block iframes
             delete headers['x-frame-options'];
             delete headers['content-security-policy'];
             delete headers['content-security-policy-report-only'];
             delete headers['cross-origin-resource-policy'];
             
-            // Allow cross-origin for assets
             headers['Access-Control-Allow-Origin'] = '*';
 
             res.writeHead(targetRes.statusCode, headers);
 
             const contentType = headers['content-type'] || '';
 
-            // 2. Use Scramjet to handle the stream
             if (contentType.includes('text/html')) {
-                // If it's HTML, we inject the <base> tag to fix broken CSS/links
                 DataStream.from(targetRes)
                     .map(chunk => chunk.toString())
                     .map(html => {
+                        // Injecting base tag so relative assets load via our proxy
                         const baseTag = `<base href="${url.origin}${url.pathname}">`;
                         return html.replace('<head>', `<head>${baseTag}`);
                     })
                     .pipe(res);
             } else {
-                // For images, scripts, and styles, stream directly
                 DataStream.from(targetRes).pipe(res);
             }
         });
 
         proxyReq.on('error', (err) => {
             console.error('Proxy Error:', err);
-            if (!res.headersSent) res.status(500).send('Proxy Error: ' + err.message);
+            if (!res.headersSent) res.status(502).send('Bad Gateway');
         });
 
         proxyReq.end();
     } catch (e) {
-        res.status(500).send('Invalid URL format. Make sure it is a full URL.');
+        res.status(400).send('Invalid URL format.');
     }
 });
 
-app.listen(PORT, () => console.log(`🚀 Scramjet Proxy live on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Proxy listening on port ${PORT}`));
