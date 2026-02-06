@@ -4,21 +4,16 @@
     <meta charset="UTF-8">
     <title>Zen Browser</title>
     <style>
-        :root { --bg: #0d0d0f; --nav: #16161a; --accent: #8b5cf6; --text: #f4f4f5; --border: #27272a; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        .tab-bar { display: flex; background: #000; padding: 5px 10px 0; gap: 4px; border-bottom: 1px solid var(--border); }
-        .tab { padding: 8px 15px; background: var(--nav); border-radius: 8px 8px 0 0; font-size: 12px; cursor: pointer; border: 1px solid var(--border); border-bottom: none; display: flex; align-items: center; gap: 8px; min-width: 120px; max-width: 200px; }
+        :root { --bg: #0a0a0c; --nav: #16161a; --accent: #a855f7; --text: #f4f4f5; --border: #27272a; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .tab-bar { display: flex; background: #000; padding: 5px 10px 0; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+        .tab { padding: 8px 15px; background: var(--nav); border-radius: 8px 8px 0 0; font-size: 12px; cursor: pointer; border: 1px solid var(--border); border-bottom: none; display: flex; align-items: center; gap: 8px; min-width: 120px; white-space: nowrap; }
         .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
-        .tab img { width: 14px; height: 14px; border-radius: 2px; }
-        
-        .navbar { background: var(--nav); padding: 8px 15px; display: flex; gap: 10px; align-items: center; }
-        .omnibox { flex-grow: 1; background: #000; border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; color: #fff; outline: none; }
-        .omnibox:focus { border-color: var(--accent); }
-        
-        .btn { background: none; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
-        .btn:hover { border-color: var(--accent); }
-        
+        .navbar { background: var(--nav); padding: 8px 15px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--border); }
+        .omnibox { flex-grow: 1; background: #000; border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; color: #fff; outline: none; transition: 0.2s; }
+        .omnibox:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
+        .btn { background: none; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: var(--border); }
         .view-area { flex-grow: 1; background: #fff; position: relative; }
         iframe { width: 100%; height: 100%; border: none; display: none; }
         iframe.active { display: block; }
@@ -27,20 +22,19 @@
 <body>
 
 <div class="tab-bar" id="tab-bar">
-    <button class="btn" onclick="addTab()" style="margin-bottom:5px">+</button>
+    <button class="btn" onclick="addTab()" style="margin-bottom:5px; height: 30px;">+</button>
 </div>
 
 <div class="navbar">
     <button class="btn" onclick="goBack()">←</button>
     <button class="btn" onclick="reload()">↻</button>
-    <input type="text" id="url-input" class="omnibox" placeholder="Enter URL or search Google..." onkeydown="if(event.key==='Enter') navigate()">
-    <button class="btn" onclick="cloak('about:blank')">🕶️ Cloak</button>
+    <input type="text" id="url-input" class="omnibox" placeholder="Enter URL or search..." onkeydown="if(event.key==='Enter') navigate()">
+    <button class="btn" onclick="cloak()">🕶️ Cloak</button>
 </div>
 
 <div class="view-area" id="view-area"></div>
 
 <script>
-    let tabs = [];
     let activeId = null;
 
     function addTab() {
@@ -48,15 +42,14 @@
         const tabBtn = document.createElement('div');
         tabBtn.className = 'tab';
         tabBtn.id = `btn-${id}`;
-        tabBtn.innerHTML = `<img src="https://www.google.com/favicon.ico" id="fav-${id}"> <span id="title-${id}">New Tab</span>`;
+        tabBtn.innerHTML = `<span id="title-${id}">New Tab</span> <span onclick="closeTab('${id}', event)" style="margin-left: 10px; opacity: 0.5;">×</span>`;
         tabBtn.onclick = () => switchTab(id);
-        document.getElementById('tab-bar').insertBefore(tabBtn, document.getElementById('tab-bar').firstChild);
+        document.getElementById('tab-bar').insertBefore(tabBtn, document.getElementById('tab-bar').lastElementChild);
 
         const ifr = document.createElement('iframe');
         ifr.id = `frame-${id}`;
         document.getElementById('view-area').appendChild(ifr);
 
-        tabs.push(id);
         switchTab(id);
     }
 
@@ -67,33 +60,41 @@
         document.getElementById(`frame-${id}`).classList.add('active');
     }
 
+    function closeTab(id, e) {
+        e.stopPropagation();
+        document.getElementById(`btn-${id}`).remove();
+        document.getElementById(`frame-${id}`).remove();
+        if (activeId === id) {
+            const remaining = document.querySelector('.tab');
+            if (remaining) switchTab(remaining.id.replace('btn-', ''));
+            else addTab();
+        }
+    }
+
     function navigate() {
         let val = document.getElementById('url-input').value.trim();
         if (!val) return;
 
-        // Omnibox Logic: URL vs Search
         const isUrl = val.includes('.') && !val.includes(' ');
         const url = isUrl ? (val.startsWith('http') ? val : 'https://' + val) : 'https://www.google.com/search?q=' + encodeURIComponent(val);
 
         const frame = document.getElementById(`frame-${activeId}`);
+        // Match the new server route: /s/URL
         frame.src = `/s/${url}`;
-
-        // Update Tab
-        document.getElementById(`title-${activeId}`).innerText = isUrl ? val.split('/')[0] : 'Search';
-        document.getElementById(`fav-${activeId}`).src = `https://www.google.com/s2/favicons?domain=${url}&sz=32`;
+        document.getElementById(`title-${activeId}`).innerText = isUrl ? val.substring(0, 12) : 'Search';
     }
 
-    function cloak(type) {
+    function cloak() {
         const url = window.location.href;
         const win = window.open('about:blank', '_blank');
         win.document.body.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;position:fixed;top:0;left:0;"></iframe>`;
-        win.document.title = "Google Drive"; // School-friendly title
+        win.document.title = "Google Drive";
     }
 
     function reload() { document.getElementById(`frame-${activeId}`).contentWindow.location.reload(); }
     function goBack() { document.getElementById(`frame-${activeId}`).contentWindow.history.back(); }
 
-    addTab(); // Start with one tab
+    addTab();
 </script>
 </body>
 </html>

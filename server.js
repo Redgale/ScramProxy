@@ -9,12 +9,14 @@ const PORT = process.env.PORT || 8000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// The "Service" endpoint handles all proxied traffic
-app.get('/s/:url(*)', async (req, res) => {
-    let target = req.params.url;
+// Use '*' to capture everything after /s/
+app.get('/s/*', async (req, res) => {
+    // Capture the target URL from the path
+    let target = req.params[0]; 
+    
     if (!target) return res.redirect('/');
 
-    // Handle protocol-less URLs
+    // Ensure protocol is present
     if (!target.startsWith('http')) target = 'https://' + target;
 
     try {
@@ -24,46 +26,52 @@ app.get('/s/:url(*)', async (req, res) => {
         const options = {
             method: 'GET',
             headers: {
-                'User-Agent': req.headers['user-agent'],
+                'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
+                'Accept': req.headers['accept'],
                 'Referer': url.origin
             }
         };
 
         const proxyReq = protocol.request(target, options, (targetRes) => {
-            // 1. STRIP SECURITY HEADERS (The "Uncook" Step)
+            // 1. Strip security headers that "cook" the page (prevent iframing)
             const headers = { ...targetRes.headers };
             delete headers['x-frame-options'];
             delete headers['content-security-policy'];
             delete headers['content-security-policy-report-only'];
             delete headers['cross-origin-resource-policy'];
-
-            // 2. Add CORS so the browser allows the assets
+            
+            // Allow cross-origin for assets
             headers['Access-Control-Allow-Origin'] = '*';
 
             res.writeHead(targetRes.statusCode, headers);
 
             const contentType = headers['content-type'] || '';
 
-            // 3. Inject Base Tag for HTML
+            // 2. Use Scramjet to handle the stream
             if (contentType.includes('text/html')) {
+                // If it's HTML, we inject the <base> tag to fix broken CSS/links
                 DataStream.from(targetRes)
                     .map(chunk => chunk.toString())
                     .map(html => {
-                        // Injects a base tag so relative links resolve back to our proxy
-                        const baseTag = `<base href="/s/${url.origin}${url.pathname}">`;
+                        const baseTag = `<base href="${url.origin}${url.pathname}">`;
                         return html.replace('<head>', `<head>${baseTag}`);
                     })
                     .pipe(res);
             } else {
-                targetRes.pipe(res);
+                // For images, scripts, and styles, stream directly
+                DataStream.from(targetRes).pipe(res);
             }
         });
 
-        proxyReq.on('error', (err) => res.status(500).send('Proxy Error: ' + err.message));
+        proxyReq.on('error', (err) => {
+            console.error('Proxy Error:', err);
+            if (!res.headersSent) res.status(500).send('Proxy Error: ' + err.message);
+        });
+
         proxyReq.end();
     } catch (e) {
-        res.status(500).send('Invalid URL');
+        res.status(500).send('Invalid URL format. Make sure it is a full URL.');
     }
 });
 
-app.listen(PORT, () => console.log(`🚀 ScramProxy Uncooked is live on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Scramjet Proxy live on port ${PORT}`));
