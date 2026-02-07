@@ -1,14 +1,17 @@
 FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
 
+# Copy backend package files
+COPY backend/package*.json ./
+
 # Install dependencies
-COPY package*.json ./
 RUN npm ci --only=production
 
-# Copy source code
-COPY src ./src
-COPY public ./public
+# Copy backend source code
+COPY backend/src ./src
+COPY backend/public ./public
 
 # Expose port
 EXPOSE 3000
