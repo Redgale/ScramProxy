@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scramjet Web Proxy</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="/favicon.ico">
+</head>
+<body>
+  <div id="app">
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="navbar-left">
+        <button id="menuBtn" class="menu-btn" title="Menu">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="logo">
+          <span class="logo-icon">🔗</span>
+          <span class="logo-text">Scramjet</span>
+        </div>
+      </div>
+
+      <!-- Tab Bar -->
+      <div class="tabs-container">
+        <div id="tabsList" class="tabs-list"></div>
+        <button id="newTabBtn" class="new-tab-btn" title="New Tab">+</button>
+      </div>
+
+      <!-- Address Bar -->
+      <div class="navbar-right">
+        <div class="address-bar">
+          <input 
+            type="text" 
+            id="urlInput" 
+            class="url-input" 
+            placeholder="Enter URL or search..."
+            autocomplete="off"
+          >
+          <button id="goBtn" class="go-btn" title="Go">→</button>
+        </div>
+        <button id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+      </div>
+    </nav>
+
+    <!-- Content Area -->
+    <div class="content-wrapper">
+      <div id="tabsContent" class="tabs-content"></div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel hidden">
+      <div class="settings-header">
+        <h2>Settings</h2>
+        <button id="closeSettingsBtn" class="close-btn">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <h3>Tab Cloaking</h3>
+          <label>
+            <input type="radio" name="cloakMode" value="none" checked>
+            <span>None (Default)</span>
+          </label>
+          <label>
+            <input type="radio" name="cloakMode" value="about-blank">
+            <span>about:blank</span>
+          </label>
+          <label>
+            <input type="radio" name="cloakMode" value="blob">
+            <span>Blob URL</span>
+          </label>
+        </div>
+
+        <div class="settings-section">
+          <h3>Features</h3>
+          <label>
+            <input type="checkbox" id="enableJS" checked>
+            <span>Enable JavaScript</span>
+          </label>
+          <label>
+            <input type="checkbox" id="blockAds">
+            <span>Block Ads</span>
+          </label>
+          <label>
+            <input type="checkbox" id="blockTrackers">
+            <span>Block Trackers</span>
+          </label>
+          <label>
+            <input type="checkbox" id="enableCache" checked>
+            <span>Enable Caching</span>
+          </label>
+        </div>
+
+        <div class="settings-section">
+          <h3>Custom Headers</h3>
+          <label>
+            <span>User Agent</span>
+            <input 
+              type="text" 
+              id="userAgent" 
+              placeholder="Leave empty for default"
+            >
+          </label>
+        </div>
+
+        <div class="settings-actions">
+          <button id="saveSettingsBtn" class="btn btn-primary">Save</button>
+          <button id="resetSettingsBtn" class="btn btn-secondary">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span id="statusText">Ready</span>
+      <span id="loadingIndicator" class="loading hidden">⏳ Loading...</span>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
